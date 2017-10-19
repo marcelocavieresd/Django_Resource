@@ -1,0 +1,31 @@
+def login_user(request):
+    template_name = 'login.html'
+    logout(request)
+    username = password = ''
+    if request.POST:
+        username = request.POST['Username']
+        password = request.POST['Password']
+        post_data = {'username':username,'password':password}
+        response = requests.post('http://cubesoa.asuscomm.com:90/rest-auth/login/',data=post_data)
+        content = ast.literal_eval(response.content)
+        if "key" in content:
+            post_data2 = {'username':username}
+            header = {"Content-Type":'application/json','Authorization':"Token " + content["key"]}
+            response2 = requests.get('http://cubesoa.asuscomm.com:90/rest-auth/user/',headers=header,data=post_data2)
+            respuesta = ast.literal_eval(response2.content)
+            request.session["name"] = respuesta["first_name"] + " " + respuesta["last_name"]
+            request.session["token"] = content["key"]
+            post_data3 = {'user_pk':respuesta['pk']}
+            header2 = {"Content-Type":'application/x-www-form-urlencoded','Authorization':"Token " + content["key"]}
+            response3 = requests.post('http://cubesoa.asuscomm.com:90/get/get_user_info/',headers=header2, data=post_data3)
+            respuesta3 = ast.literal_eval(response3.content)
+            respuesta3 = respuesta3['user_info']
+            request.session["rut"] = respuesta3['user_rut']
+            request.session["type"] = respuesta3["user_type"]
+            user = User_Profile.objects.filter(rut=respuesta3["user_rut"])
+            if len(user) != 1:
+                user = User_Profile.objects.create(rut=respuesta3["user_rut"],
+                                                  nombre=request.session["name"])
+                user.save()
+            return HttpResponseRedirect(reverse_lazy('index'))
+    return render(request, template_name, {})
